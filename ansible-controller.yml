@@ -1,0 +1,33 @@
+- hosts: ansible-controller
+  connection: local
+
+  tasks:
+    - name: Create .config/openstack path
+      file:
+        path: ~/.config/openstack
+        state: directory
+        mode: 0755
+    - name: "Copy the clouds.yaml file into .config/openstack"
+      copy:
+        src: 'files/{{ inventory_dir | basename }}/{{ inventory_hostname }}/clouds.yaml'
+        dest: ~/.config/openstack/clouds.yaml
+        mode: 0644
+    - include_vars:
+        file: 'files/{{ inventory_dir | basename }}/{{ inventory_hostname }}/resources.yml'
+    - include_role:
+        name: ansible-role-cloud-launcher
+    - name: Wait for nodepool to be reachable
+      wait_for_connection:
+      remote_user: ubuntu
+      delegate_to: "{{ hostvars['nodepool']['ansible_host'] }}"
+    - name: Wait for dci-agent to be reachable
+      wait_for_connection:
+      remote_user: centos
+      delegate_to: "{{ hostvars['dci-agent']['ansible_host'] }}"
+    - name: Set up cronjob to run infra playbooks
+      cron:
+        name: "run infra playbooks"
+        user: centos
+        special_time: hourly
+        job: /home/centos/network-infra-playbooks/play.sh
+      when: hostvars['ansible-controller']['enable_play_cronjob']

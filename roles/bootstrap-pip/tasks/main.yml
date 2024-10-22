@@ -1,0 +1,18 @@
+---
+- name: Load OS specific variables
+  include_vars: "{{ item }}"
+  with_first_found:
+    - "{{ ansible_os_family }}.yml"
+
+- stat:
+    path: "{{ pip_binary_path }}"
+  register: st
+
+- block:
+    - get_url:
+        url: https://bootstrap.pypa.io/get-pip.py
+        dest: /tmp
+        validate_certs: no
+    - shell: python /tmp/get-pip.py
+      become: yes
+  when: not st.stat.exists
